@@ -12,10 +12,11 @@ if (!url) {
 }
 const usuario = (process.argv[2] ?? "admin").toLowerCase();
 
-// Sem caracteres ambíguos (0/O, 1/l/I); garante maiúscula, minúscula, número e símbolo.
-const grupos = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789", "!@#$%&*?-_"];
+// Só letras e números sem ambiguidade (0/O, 1/l/I) — símbolos como $ se perdem ao copiar
+// de chats com Markdown. 24 caracteres compensam a falta de símbolos.
+const grupos = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789"];
 const caracteres = grupos.map((g) => g[randomInt(g.length)]);
-while (caracteres.length < 20) caracteres.push(grupos.join("")[randomInt(grupos.join("").length)]);
+while (caracteres.length < 24) caracteres.push(grupos.join("")[randomInt(grupos.join("").length)]);
 for (let i = caracteres.length - 1; i > 0; i--) {
   const j = randomInt(i + 1);
   [caracteres[i], caracteres[j]] = [caracteres[j], caracteres[i]];
