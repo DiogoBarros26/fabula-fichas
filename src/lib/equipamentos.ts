@@ -90,3 +90,45 @@ export const ESCUDOS: EscudoCatalogo[] = [
   { id: "escudo-de-bronze", nome: "Escudo de Bronze", custo: 100, defesa: 2, defesaMagica: 0, marcial: false },
   { id: "escudo-runico", nome: "Escudo Rúnico", custo: 150, defesa: 2, defesaMagica: 2, marcial: true },
 ];
+
+// Acessórios: no livro, todo acessório é item raro. Estes são os exemplos das páginas 285–287
+// (o livro também traz uma tabela de qualidades para o Mestre criar os seus).
+// "bonus" = o que a ficha soma sozinha (defesas, iniciativa e as rolagens de precisão e de magia).
+
+export type BonusAcessorio = { defesa?: number; defesaMagica?: number; iniciativa?: number; precisao?: number; magia?: number };
+export type AcessorioCatalogo = { id: string; nome: string; custo: number; efeito: string; bonus?: BonusAcessorio };
+
+const ac = (id: string, nome: string, custo: number, efeito: string, bonus?: BonusAcessorio): AcessorioCatalogo => ({ id, nome, custo, efeito, bonus });
+const pingente = (pedra: string, tipo: string) => ac(`pingente-${pedra.toLowerCase()}`, `Pingente de ${pedra}`, 700, `Resistência a dano ${tipo}.`);
+
+export const ACESSORIOS: AcessorioCatalogo[] = [
+  ac("cinto-do-explorador", "Cinto do Explorador", 500, "+4 no modificador de Iniciativa.", { iniciativa: 4 }),
+  ac("luvas-elegantes", "Luvas Elegantes", 500, "Imune a tonto."),
+  ac("luvas-asperas", "Luvas Ásperas", 500, "Imune a fraco."),
+  ac("luvas-sedosas", "Luvas Sedosas", 500, "Imune a lento."),
+  ac("luvas-quentes", "Luvas Quentes", 500, "Imune a abalado."),
+  ac("botas-de-novato", "Botas de Novato", 600, "Ao tirar uma falha crítica, se tiver menos de 10 XP, pode ganhar 1 XP na hora."),
+  ac("mascara-hannya", "Máscara Han'nya", 700, "Todo dano que você causa a criaturas abaladas ignora Resistências."),
+  pingente("Âmbar", "de terra"),
+  pingente("Ametista", "sombrio"),
+  pingente("Diamante", "de luz"),
+  pingente("Esmeralda", "de veneno"),
+  pingente("Opala", "de ar"),
+  pingente("Rubi", "de fogo"),
+  pingente("Safira", "de gelo"),
+  pingente("Topázio", "de raio"),
+  ac("anel-de-feiticaria", "Anel de Feitiçaria", 800, "+1 de Defesa Mágica.", { defesaMagica: 1 }),
+  ac("botas-do-andarilho", "Botas do Andarilho", 900, "Quando o grupo faz uma descoberta numa viagem, você pode ganhar 1 Ponto de Fábula."),
+  ac("elmo-com-crista", "Elmo com Crista", 1000, "+1 nos Testes de Precisão.", { precisao: 1 }),
+  ac("luvas-carmesim", "Luvas Carmesim", 1000, "+2 no Teste de Precisão de ataques com multi."),
+  ac("chapeu-amarelo-pontudo", "Chapéu Amarelo Pontudo", 1000, "+1 nos Testes Mágicos.", { magia: 1 }),
+  ac("anel-do-leao", "Anel do Leão", 1500, "+2 em Testes Resistidos que usem Vontade."),
+  ac("anel-da-coruja", "Anel da Coruja", 1500, "+2 em Testes Resistidos que usem Astúcia."),
+  ac("anel-do-aprendiz", "Anel do Aprendiz", 1500, "Com pelo menos dois Laços de Admiração, +1 de Defesa e de Defesa Mágica."),
+  ac("anel-dos-contos", "Anel dos Contos", 1500, "Ao tirar um crítico, pode trocar a oportunidade por 1 Ponto de Fábula."),
+  ac("luvas-de-pele-quimerica", "Luvas de Pele Quimérica", 2000, "Imune a todos os efeitos de status."),
+  ac("anel-de-cebola", "Anel de Cebola", 2000, "+2 PV e +2 PM máximos para cada classe diferente que você tem."),
+  ac("anel-de-gelo", "Anel de Gelo", 2500, "Absorve dano de gelo, mas é Vulnerável a dano de fogo."),
+  ac("anel-de-magma", "Anel de Magma", 2500, "Absorve dano de fogo, mas é Vulnerável a dano de gelo."),
+  ac("anel-do-ovo", "Anel do Ovo", 3000, "Ao chegar a 0 PV, pode ficar com exatamente 1 PV; o anel quebra (consertar custa 2.000 z)."),
+];

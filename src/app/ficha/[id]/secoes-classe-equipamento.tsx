@@ -1,6 +1,6 @@
 "use client";
 
-import { ARMADURAS, ARMAS, ESCUDOS } from "@/lib/equipamentos";
+import { ACESSORIOS, ARMADURAS, ARMAS, ESCUDOS, type BonusAcessorio } from "@/lib/equipamentos";
 import { habilidadesDaClasse } from "@/lib/habilidades";
 import { lerPrecisao } from "@/lib/dados";
 import { CLASSES, avisosEquipamento, escolhasUsadas, type Arma, type Ficha } from "@/lib/regras";
@@ -315,13 +315,64 @@ export function SecaoEquipamento({ f, set, rolarArma }: Omit<Props, "avisos"> & 
           </div>
         </div>
         <div className="rounded-md bg-black/25 p-3">
-          <span className="rotulo">Acessório</span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="rotulo">Acessório</span>
+            <select
+              className="campo w-full min-w-0 text-sm"
+              value=""
+              onChange={(e) => {
+                if (e.target.value === "nenhum") return set("acessorio", { nome: "", efeito: "" });
+                const a = ACESSORIOS.find((x) => x.id === e.target.value);
+                if (a) set("acessorio", { nome: a.nome, efeito: a.efeito, bonus: a.bonus });
+              }}
+            >
+              <option value="" disabled hidden className="bg-janela">
+                Escolher do livro…
+              </option>
+              <option value="nenhum" className="bg-janela">
+                Sem acessório
+              </option>
+              {ACESSORIOS.map((a) => (
+                <option key={a.id} value={a.id} className="bg-janela">
+                  {a.nome} — {a.efeito} · {a.custo} z
+                </option>
+              ))}
+            </select>
+          </div>
           <input className="campo mt-1" placeholder="Nome" value={f.acessorio.nome} onChange={(e) => set("acessorio", { ...f.acessorio, nome: e.target.value })} />
           <textarea className="campo mt-2 min-h-14 text-sm" placeholder="Efeito" value={f.acessorio.efeito} onChange={(e) => set("acessorio", { ...f.acessorio, efeito: e.target.value })} />
+          {f.acessorio.bonus && Object.keys(f.acessorio.bonus).length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-suave">Já somado na ficha:</span>
+              <span className="rounded border border-ouro/50 px-1.5 py-0.5 text-ouro">{descreverBonus(f.acessorio.bonus)}</span>
+              <button
+                className="text-suave hover:text-pv"
+                title="Parar de somar este bônus (para um acessório escrito à mão)"
+                onClick={() => set("acessorio", { nome: f.acessorio.nome, efeito: f.acessorio.efeito })}
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
+}
+
+const NOMES_BONUS: Record<keyof BonusAcessorio, string> = {
+  defesa: "Defesa",
+  defesaMagica: "D. Mágica",
+  iniciativa: "Iniciativa",
+  precisao: "Precisão",
+  magia: "Teste Mágico",
+};
+
+function descreverBonus(b: BonusAcessorio) {
+  return (Object.keys(NOMES_BONUS) as (keyof BonusAcessorio)[])
+    .filter((k) => b[k])
+    .map((k) => `+${b[k]} ${NOMES_BONUS[k]}`)
+    .join(" · ");
 }
 
 function NumeroRotulado({ rotulo, valor, onChange }: { rotulo: string; valor: number; onChange: (v: number) => void }) {

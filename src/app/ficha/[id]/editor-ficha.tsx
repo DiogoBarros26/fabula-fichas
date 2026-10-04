@@ -118,12 +118,12 @@ export function EditorFicha({
   };
   const rolarMagia = (magia: Magia) => {
     const teste = lerPrecisao(TESTE_MAGICO)!;
-    rolarTeste(teste.atributos, bonusTeste, `${magia.nome || "Magia"} — Teste Mágico`, lerDano(magia.dano ?? "") ?? undefined);
+    rolarTeste(teste.atributos, bonusTeste + (f.acessorio.bonus?.magia ?? 0), `${magia.nome || "Magia"} — Teste Mágico`, lerDano(magia.dano ?? "") ?? undefined);
   };
   const rolarArma = (arma: Arma) => {
     const precisao = lerPrecisao(arma.precisao);
     if (!precisao) return;
-    rolarTeste(precisao.atributos, precisao.bonus + bonusTeste, `${arma.nome || "Arma"} — Precisão`, lerDano(arma.dano) ?? undefined);
+    rolarTeste(precisao.atributos, precisao.bonus + bonusTeste + (f.acessorio.bonus?.precisao ?? 0), `${arma.nome || "Arma"} — Precisão`, lerDano(arma.dano) ?? undefined);
   };
 
   return (
@@ -414,6 +414,19 @@ export function EditorFicha({
               <p className="mt-2 text-xs text-ouro">
                 {c.habilidades.defesa > 0 && `Esquiva: +${c.habilidades.defesa} de Defesa (já somado). `}
                 {c.habilidades.reducaoDano > 0 && `Maestria Defensiva: todo dano sofrido −${c.habilidades.reducaoDano}.`}
+              </p>
+            )}
+            {(f.acessorio.bonus?.defesa || f.acessorio.bonus?.defesaMagica || f.acessorio.bonus?.iniciativa) && (
+              <p className="mt-2 text-xs text-ouro">
+                {f.acessorio.nome || "Acessório"}:{" "}
+                {[
+                  f.acessorio.bonus.defesa && `+${f.acessorio.bonus.defesa} de Defesa`,
+                  f.acessorio.bonus.defesaMagica && `+${f.acessorio.bonus.defesaMagica} de Defesa Mágica`,
+                  f.acessorio.bonus.iniciativa && `+${f.acessorio.bonus.iniciativa} de Iniciativa`,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}{" "}
+                (já somado).
               </p>
             )}
             <details className="mt-3 text-sm">

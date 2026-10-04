@@ -1,5 +1,7 @@
 // Regras do livro básico de Fabula Ultima usadas pela ficha.
 
+import type { BonusAcessorio } from "./equipamentos";
+
 export type Dado = 6 | 8 | 10 | 12;
 export const DADOS: Dado[] = [6, 8, 10, 12];
 
@@ -84,7 +86,8 @@ export type Ficha = {
   armas: Arma[];
   armadura: { nome: string; defesaFixa: number | null; defesa: number; defesaMagica: number; iniciativa: number; marcial?: boolean };
   escudo: { nome: string; defesa: number; defesaMagica: number; marcial?: boolean };
-  acessorio: { nome: string; efeito: string };
+  /** "bonus": valores que a ficha soma sozinha (vêm dos acessórios do livro). */
+  acessorio: { nome: string; efeito: string; bonus?: BonusAcessorio };
   defesaExtra: number;
   defesaMagicaExtra: number;
   iniciativaExtra: number;
@@ -198,9 +201,10 @@ export function calcular(f: Ficha) {
   const crise = Math.floor(pvMax / 2);
 
   const defesaBase = f.armadura.defesaFixa ?? atual.des + f.armadura.defesa;
-  const defesa = defesaBase + f.escudo.defesa + habilidades.defesa + f.defesaExtra;
-  const defesaMagica = atual.ast + f.armadura.defesaMagica + f.escudo.defesaMagica + f.defesaMagicaExtra;
-  const iniciativa = f.armadura.iniciativa + f.iniciativaExtra;
+  const acessorio = f.acessorio.bonus ?? {};
+  const defesa = defesaBase + f.escudo.defesa + habilidades.defesa + (acessorio.defesa ?? 0) + f.defesaExtra;
+  const defesaMagica = atual.ast + f.armadura.defesaMagica + f.escudo.defesaMagica + (acessorio.defesaMagica ?? 0) + f.defesaMagicaExtra;
+  const iniciativa = f.armadura.iniciativa + (acessorio.iniciativa ?? 0) + f.iniciativaExtra;
 
   const pv = f.pvAtual ?? pvMax;
   const pm = f.pmAtual ?? pmMax;
