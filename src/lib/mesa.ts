@@ -1,9 +1,9 @@
 import "server-only";
-import { and, asc, desc, eq, gt, gte, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, or, sql } from "drizzle-orm";
 import { del } from "@vercel/blob";
 import { db } from "@/db";
 import { faixas, musicaCampanha, rolagens, type TipoFaixa } from "@/db/schema";
-import type { Rolagem } from "./dados";
+import type { ResultadoRolagem, Rolagem } from "./dados";
 
 export type Faixa = { id: string; titulo: string; url: string; tipo: TipoFaixa };
 export type EstadoMusica = { faixaId: string | null; tocando: boolean; posicao: number; repetir: boolean; atualizadoEm: number };
@@ -13,6 +13,8 @@ export type EstadoMesa = {
   rolagens: Rolagem[];
   /** Ids que ainda existem a partir de "de": o que sumir daqui foi apagado pelo Mestre. */
   existentes: number[];
+  /** Rolagens (a partir de "de") que receberam um Laço depois de roladas. */
+  invocacoes: { id: number; laco: NonNullable<ResultadoRolagem["laco"]>; total: number }[];
   faixas: Faixa[];
   musica: EstadoMusica;
 };
@@ -23,7 +25,14 @@ export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre
   // Rolagens secretas só aparecem para quem rolou e para o Mestre.
   const visiveis = ehMestre ? undefined : or(eq(rolagens.secreta, false), eq(rolagens.usuarioId, usuarioId));
   const linhas = await banco
-    .select({ id: rolagens.id, autor: rolagens.autor, secreta: rolagens.secreta, resultado: rolagens.resultado, criadoEm: rolagens.criadoEm })
+    .select({
+      id: rolagens.id,
+      fichaId: rolagens.fichaId,
+      autor: rolagens.autor,
+      secreta: rolagens.secreta,
+      resultado: rolagens.resultado,
+      criadoEm: rolagens.criadoEm,
+    })
     .from(rolagens)
     .where(and(eq(rolagens.campanhaId, campanhaId), gt(rolagens.id, desde), visiveis))
     .orderBy(desc(rolagens.id))
@@ -31,7 +40,11 @@ export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre
 
   const existentes = de
     ? await banco
-        .select({ id: rolagens.id })
+        .select({
+          id: rolagens.id,
+          laco: sql<ResultadoRolagem["laco"] | null>`${rolagens.resultado} -> 'laco'`,
+          total: sql<number>`(${rolagens.resultado} ->> 'total')::int`,
+        })
         .from(rolagens)
         .where(and(eq(rolagens.campanhaId, campanhaId), gte(rolagens.id, de), visiveis))
         .limit(500)
@@ -50,6 +63,7 @@ export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre
     ehMestre,
     rolagens: linhas.reverse().map((r) => ({ ...r, criadoEm: r.criadoEm.toISOString() })),
     existentes: existentes.map((r) => r.id),
+    invocacoes: existentes.flatMap(({ id, laco, total }) => (laco ? [{ id, laco, total }] : [])),
     faixas: lista,
     musica: musica
       ? { faixaId: musica.faixaId, tocando: musica.tocando, posicao: musica.posicao, repetir: musica.repetir, atualizadoEm: musica.atualizadoEm.getTime() }

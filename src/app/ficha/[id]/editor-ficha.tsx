@@ -16,7 +16,7 @@ import {
   type Ficha,
 } from "@/lib/regras";
 import { lerDano, lerPrecisao } from "@/lib/dados";
-import { rolar } from "@/components/mesa/estado";
+import { definirFichaAberta, rolar } from "@/components/mesa/estado";
 import { SecaoClasses, SecaoEquipamento } from "./secoes-classe-equipamento";
 import { definirCampanhaFicha, definirVisibilidade, excluirFicha, salvarFicha } from "@/app/actions";
 
@@ -96,6 +96,18 @@ export function EditorFicha({
       setRolando(false);
     }
   };
+  // Enquanto a ficha está aberta, a mesa pode invocar os Laços dela nas rolagens (gastando Pontos de Fábula daqui).
+  useEffect(() => {
+    if (!podeEditar) return;
+    definirFichaAberta({
+      id,
+      lacos: f.lacos,
+      pontosFabula: f.pontosFabula,
+      aoGastarPonto: (restantes) => setF((x) => ({ ...x, pontosFabula: restantes })),
+    });
+  }, [id, podeEditar, f.lacos, f.pontosFabula]);
+  useEffect(() => () => definirFichaAberta(null), []);
+
   const escolherAtributo = (a: AtributoId) => setEscolha((atual) => (atual.length < MAX_DADOS ? [...atual, a] : atual));
   const rolarEscolha = () => {
     if (escolha.length < 2) return;

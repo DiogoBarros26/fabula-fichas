@@ -12,7 +12,9 @@ import {
   entrarNaMesa,
   lerMesa,
   receberRolagens,
+  aplicarInvocacoes,
   apagarRolagens,
+  invocarLaco,
   rolar,
   sairDaMesa,
   trocarUsuario,
@@ -66,6 +68,7 @@ export function Mesa({ usuarioId }: { usuarioId: string }) {
           const depois = Date.now();
           atualizarServidor(dados, dados.agora - (antes + depois) / 2);
           conferirExistentes(de, desde, dados.existentes);
+          aplicarInvocacoes(dados.invocacoes);
           receberRolagens(dados.rolagens, !primeira);
           primeira = false;
         }
@@ -291,12 +294,21 @@ function descreverMonte(dados: number[], bonus: number) {
 }
 
 function Aviso({ r }: { r: Rolagem }) {
+  // Com o mouse em cima (ex.: escolhendo um Laço), o aviso não some.
+  const [parado, setParado] = useState(false);
   useEffect(() => {
+    if (parado) return;
     const t = setTimeout(() => dispensarAviso(r.id), 7000);
     return () => clearTimeout(t);
-  }, [r.id]);
+  }, [r.id, parado]);
   return (
-    <div className="janela pointer-events-auto animate-[surgir_.25s_ease-out] cursor-pointer p-2" onClick={() => dispensarAviso(r.id)} title="Fechar">
+    <div
+      className="janela pointer-events-auto animate-[surgir_.25s_ease-out] cursor-pointer p-2"
+      onClick={() => dispensarAviso(r.id)}
+      onMouseEnter={() => setParado(true)}
+      onMouseLeave={() => setParado(false)}
+      title="Fechar"
+    >
       <CartaoRolagem r={r} />
     </div>
   );
@@ -342,8 +354,13 @@ export function CartaoRolagem({ r, onApagar }: { r: Rolagem; onApagar?: () => vo
           {x.ra !== undefined && <div className="text-[10px] text-suave">RA {x.ra}</div>}
         </div>
       </div>
-      {(x.critico || x.falha || x.dano) && (
+      {(x.critico || x.falha || x.dano || x.laco) && (
         <div className="mt-1 flex flex-wrap gap-x-3 text-xs">
+          {x.laco && (
+            <span className="text-pi" title="Laço invocado: 1 Ponto de Fábula gasto">
+              ✦ Laço com {x.laco.nome}: +{x.laco.forca}
+            </span>
+          )}
           {x.critico && <span className="font-bold text-ouro">✦ CRÍTICO!</span>}
           {x.falha && <span className="font-bold text-pv">✖ Falha crítica</span>}
           {x.dano && (
@@ -351,6 +368,73 @@ export function CartaoRolagem({ r, onApagar }: { r: Rolagem; onApagar?: () => vo
               Dano: <b className="text-sm text-pv">{x.dano.total}</b> {x.dano.tipo}
             </span>
           )}
+        </div>
+      )}
+      <InvocarLaco r={r} />
+    </div>
+  );
+}
+
+/** Depois de um teste da ficha aberta: gastar 1 Ponto de Fábula e somar a força de um Laço (uma vez por teste). */
+function InvocarLaco({ r }: { r: Rolagem }) {
+  const { fichaAberta } = useMesa();
+  const [aberto, setAberto] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState("");
+  const x = r.resultado;
+  if (!fichaAberta || fichaAberta.id !== r.fichaId || x.tipo !== "teste" || x.laco || x.critico || x.falha) return null;
+
+  const lacos = fichaAberta.lacos.map((l, i) => ({ ...l, i, forca: Math.min(3, l.emocoes.length) })).filter((l) => l.forca > 0);
+  const semPontos = fichaAberta.pontosFabula < 1;
+  const invocar = async (indice: number) => {
+    setEnviando(true);
+    setErro("");
+    try {
+      await invocarLaco(r, indice);
+    } catch (e) {
+      setErro((e as Error).message || "Não deu para invocar.");
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="mt-1.5 text-xs" onClick={(e) => e.stopPropagation()}>
+      {!aberto ? (
+        <button
+          className="text-pi hover:underline disabled:text-suave disabled:no-underline"
+          disabled={semPontos || lacos.length === 0}
+          title={
+            semPontos
+              ? "Sem Pontos de Fábula"
+              : lacos.length === 0
+                ? "Nenhum Laço com emoção marcada na ficha"
+                : "Gasta 1 Ponto de Fábula e soma a força do Laço ao resultado"
+          }
+          onClick={() => setAberto(true)}
+        >
+          ✦ Invocar Laço{semPontos ? " (sem Pontos de Fábula)" : lacos.length === 0 ? " (nenhum Laço com emoção)" : ""}
+        </button>
+      ) : (
+        <div className="space-y-1 rounded border border-pi/40 bg-black/30 p-1.5">
+          <div className="flex items-center justify-between text-suave">
+            <span>Gastar 1 Ponto de Fábula ({fichaAberta.pontosFabula} restantes) e somar:</span>
+            <button className="hover:text-texto" onClick={() => setAberto(false)} aria-label="Cancelar">
+              ✕
+            </button>
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {lacos.map((l) => (
+              <button
+                key={l.i}
+                className="rounded-full border border-pi/60 px-2 py-0.5 text-pi hover:bg-pi/15 disabled:opacity-50"
+                disabled={enviando}
+                onClick={() => invocar(l.i)}
+              >
+                {l.nome || "Laço sem nome"} +{l.forca}
+              </button>
+            ))}
+          </div>
+          {erro && <p className="text-pv">{erro}</p>}
         </div>
       )}
     </div>

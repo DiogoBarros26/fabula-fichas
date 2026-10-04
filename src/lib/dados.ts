@@ -24,10 +24,14 @@ export type ResultadoRolagem = {
   critico?: boolean;
   falha?: boolean;
   dano?: { total: number; tipo: string };
+  /** Laço invocado depois da rolagem: a força dele já está somada ao total. */
+  laco?: { nome: string; forca: number };
 };
 
 export type Rolagem = {
   id: number;
+  /** Ficha que rolou (para invocar um Laço dela depois). */
+  fichaId: string | null;
   autor: string;
   secreta: boolean;
   resultado: ResultadoRolagem;

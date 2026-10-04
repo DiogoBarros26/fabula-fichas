@@ -5,7 +5,11 @@
 import { useSyncExternalStore } from "react";
 import type { PedidoRolagem, Rolagem } from "@/lib/dados";
 import type { EstadoMesa } from "@/lib/mesa";
-import { apagarRolagens as apagarNoServidor, rolar as rolarNoServidor } from "@/app/mesa/actions";
+import { apagarRolagens as apagarNoServidor, invocarLaco as invocarNoServidor, rolar as rolarNoServidor } from "@/app/mesa/actions";
+import type { Laco } from "@/lib/regras";
+
+/** A ficha aberta no editor (se o usuário pode editá-la): permite invocar os Laços dela nas rolagens. */
+export type FichaAberta = { id: string; lacos: Laco[]; pontosFabula: number; aoGastarPonto: (restantes: number) => void };
 
 export type CampanhaMesa = { id: string; nome: string };
 
@@ -23,6 +27,7 @@ type Estado = {
   volume: number;
   /** Faixa que o navegador não conseguiu tocar (ex.: vídeo que não permite ser incorporado). */
   faixaComErro: string | null;
+  fichaAberta: FichaAberta | null;
 };
 
 function volumeSalvo() {
@@ -44,6 +49,7 @@ let estado: Estado = {
   somAtivo: false,
   volume: typeof window === "undefined" ? 0.6 : volumeSalvo(),
   faixaComErro: null,
+  fichaAberta: null,
 };
 const ouvintes = new Set<() => void>();
 let idLocal = -1;
@@ -110,6 +116,36 @@ export async function apagarRolagens(ids: number[] | "todas") {
   const sai = (r: Rolagem) => r.id > 0 && (ids === "todas" || ids.includes(r.id));
   mudar({ rolagens: estado.rolagens.filter((r) => !sai(r)), avisos: estado.avisos.filter((r) => !sai(r)) });
   await apagarNoServidor(campanha.id, ids);
+}
+
+export function definirFichaAberta(fichaAberta: FichaAberta | null) {
+  mudar({ fichaAberta });
+}
+
+/** Põe na rolagem o resultado novo (com o Laço), no histórico e no aviso do canto. */
+function trocarResultado(id: number, mudar_: (r: Rolagem) => Rolagem) {
+  const troca = (lista: Rolagem[]) => lista.map((r) => (r.id === id ? mudar_(r) : r));
+  mudar({ rolagens: troca(estado.rolagens), avisos: troca(estado.avisos) });
+}
+
+/** Gasta 1 Ponto de Fábula da ficha e soma a força do Laço ao teste. */
+export async function invocarLaco(r: Rolagem, indiceLaco: number) {
+  const ficha = estado.fichaAberta;
+  if (!ficha || ficha.id !== r.fichaId) return;
+  const resp = await invocarNoServidor(ficha.id, indiceLaco, Math.max(0, r.id));
+  ficha.aoGastarPonto(resp.pontosFabula);
+  trocarResultado(r.id, (x) => ({
+    ...x,
+    resultado: resp.resultado ?? { ...x.resultado, laco: resp.laco, total: x.resultado.total + resp.laco.forca },
+  }));
+}
+
+/** Laços invocados por outras pessoas chegam pela atualização da mesa. */
+export function aplicarInvocacoes(invocacoes: { id: number; laco: { nome: string; forca: number }; total: number }[]) {
+  for (const { id, laco, total } of invocacoes) {
+    const r = estado.rolagens.find((x) => x.id === id);
+    if (r && !r.resultado.laco) trocarResultado(id, (x) => ({ ...x, resultado: { ...x.resultado, laco, total } }));
+  }
 }
 
 export function dispensarAviso(id: number) {
