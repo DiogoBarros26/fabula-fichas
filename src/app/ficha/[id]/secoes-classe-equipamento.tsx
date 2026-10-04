@@ -2,7 +2,8 @@
 
 import { ARMADURAS, ARMAS, ESCUDOS } from "@/lib/equipamentos";
 import { habilidadesDaClasse } from "@/lib/habilidades";
-import { CLASSES, avisosEquipamento, escolhasUsadas, type Ficha } from "@/lib/regras";
+import { lerPrecisao } from "@/lib/dados";
+import { CLASSES, avisosEquipamento, escolhasUsadas, type Arma, type Ficha } from "@/lib/regras";
 
 type Props = { f: Ficha; set: <K extends keyof Ficha>(chave: K, valor: Ficha[K]) => void; avisos: string[] };
 
@@ -128,7 +129,7 @@ export function SecaoClasses({ f, set, avisos }: Props) {
                   onChange={(e) => e.target.value && mudarSL(e.target.value, 1)}
                   title="Habilidades que você ainda pode pegar nesta classe"
                 >
-                  <option value="" className="bg-janela">
+                  <option value="" disabled hidden className="bg-janela">
                     + Escolher habilidade ({restantes} {restantes === 1 ? "disponível" : "disponíveis"})…
                   </option>
                   {disponiveis.map((hab) => (
@@ -157,7 +158,7 @@ export function SecaoClasses({ f, set, avisos }: Props) {
 
 const categorias = [...new Set(ARMAS.map((a) => a.categoria))];
 
-export function SecaoEquipamento({ f, set }: Omit<Props, "avisos">) {
+export function SecaoEquipamento({ f, set, rolarArma }: Omit<Props, "avisos"> & { rolarArma?: (arma: Arma) => void }) {
   const avisos = avisosEquipamento(f);
   return (
     <section className="janela space-y-4 p-4">
@@ -190,7 +191,7 @@ export function SecaoEquipamento({ f, set }: Omit<Props, "avisos">) {
                 ]);
               }}
             >
-              <option value="" className="bg-janela">
+              <option value="" disabled hidden className="bg-janela">
                 + Arma do livro…
               </option>
               {categorias.map((cat) => (
@@ -216,9 +217,21 @@ export function SecaoEquipamento({ f, set }: Omit<Props, "avisos">) {
                 <input className="campo" placeholder="Nome (ex.: Florete)" value={arma.nome} onChange={(e) => atualizar({ nome: e.target.value })} />
                 <input className="campo" placeholder="Precisão (DES + AST)" title="Atributos rolados no Teste de Precisão" value={arma.precisao} onChange={(e) => atualizar({ precisao: e.target.value })} />
                 <input className="campo" placeholder="Dano (RA + 8 físico)" title="RA = Resultado Alto, o maior dos dois dados rolados" value={arma.dano} onChange={(e) => atualizar({ dano: e.target.value })} />
-                <button className="botao px-2" onClick={() => set("armas", f.armas.filter((_, j) => j !== i))}>
-                  ✕
-                </button>
+                <div className="flex gap-2">
+                  {rolarArma && (
+                    <button
+                      className="botao border-ouro/60 px-2 text-ouro"
+                      disabled={!lerPrecisao(arma.precisao)}
+                      title={lerPrecisao(arma.precisao) ? "Rolar Teste de Precisão (e o dano)" : "Preencha a precisão (ex.: DES + AST) para rolar"}
+                      onClick={() => rolarArma(arma)}
+                    >
+                      🎲
+                    </button>
+                  )}
+                  <button className="botao px-2" onClick={() => set("armas", f.armas.filter((_, j) => j !== i))}>
+                    ✕
+                  </button>
+                </div>
                 <input className="campo col-span-full text-sm" placeholder="Notas (uma mão, corpo a corpo, qualidade…)" value={arma.notas} onChange={(e) => atualizar({ notas: e.target.value })} />
               </div>
             );
@@ -238,7 +251,7 @@ export function SecaoEquipamento({ f, set }: Omit<Props, "avisos">) {
               if (a) set("armadura", { nome: a.nome, defesaFixa: a.defesaFixa, defesa: a.defesa, defesaMagica: a.defesaMagica, iniciativa: a.iniciativa, marcial: a.marcial });
             }}
           >
-            <option value="" className="bg-janela">
+            <option value="" disabled hidden className="bg-janela">
               Escolher do livro…
             </option>
             <option value="nenhuma" className="bg-janela">
@@ -282,8 +295,8 @@ export function SecaoEquipamento({ f, set }: Omit<Props, "avisos">) {
                 if (s) set("escudo", { nome: s.nome, defesa: s.defesa, defesaMagica: s.defesaMagica, marcial: s.marcial });
               }}
             >
-              <option value="" className="bg-janela">
-                Do livro…
+              <option value="" disabled hidden className="bg-janela">
+                Escolher do livro…
               </option>
               <option value="nenhum" className="bg-janela">
                 Sem escudo

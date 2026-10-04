@@ -18,7 +18,8 @@ O `npm run dev` sobe um Postgres local (copiado para `%LOCALAPPDATA%\fabula-fich
 | Nome | Para quê |
 |------|----------|
 | `DATABASE_URL` | Banco Postgres. Local: definido pelo `npm run dev`. Produção: criado pela integração Neon. |
-| `ADMIN_USUARIOS` | Usuários administradores do site, separados por vírgula (ex.: `admin`). |
+| `ADMIN_USUARIOS` | Usuários administradores do site, separados por vírgula (ex.: `admin`). Admins têm os poderes de Mestre em todas as campanhas. |
+| `BLOB_READ_WRITE_TOKEN` | Loja Vercel Blob `fabula-fichas-musicas`, onde ficam os MP3 enviados para a playlist da mesa. Local: no `.env.local` (`vercel env pull`). |
 | `CODIGO_GRUPO` | Código pedido no cadastro; impede que estranhos criem conta. |
 
 ## Scripts

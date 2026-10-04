@@ -65,3 +65,19 @@ body {
 input[type="number"]::-webkit-inner-spin-button {
   opacity: 0.4;
 }
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+
+@keyframes rolar-dado {
+  50% {
+    transform: rotate(180deg) scale(1.15);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

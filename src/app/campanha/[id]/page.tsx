@@ -4,8 +4,9 @@ import { and, desc, eq, or } from "drizzle-orm";
 import { db } from "@/db";
 import { campanhas, fichas, membros, usuarios } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth";
-import { ehMembro } from "@/lib/permissoes";
+import { papelNaCampanha } from "@/lib/permissoes";
 import { CartoesFichas } from "@/components/cartoes-fichas";
+import { EntrarNaMesa } from "@/components/mesa/mesa";
 import { criarFicha } from "@/app/actions";
 import { AcoesCampanha, CodigoConvite, RemoverJogador } from "./acoes-campanha";
 
@@ -14,12 +15,15 @@ const UUID = /^[0-9a-f-]{36}$/i;
 export default async function PaginaCampanha({ params }: PageProps<"/campanha/[id]">) {
   const usuario = await exigirUsuario();
   const { id } = await params;
-  if (!UUID.test(id) || !(await ehMembro(id, usuario.id))) notFound();
+  const papel = UUID.test(id) ? await papelNaCampanha(id, usuario.id) : null;
+  if (!papel) notFound();
 
   const banco = await db();
   const [campanha] = await banco.select().from(campanhas).where(eq(campanhas.id, id));
   if (!campanha) notFound();
   const souMestre = campanha.mestreId === usuario.id;
+  // Administradores veem a campanha como o Mestre, sem participar dela.
+  const vejoTudo = papel.ehMestre;
 
   const jogadores = await banco
     .select({ id: usuarios.id, nome: usuarios.nome })
@@ -33,13 +37,14 @@ export default async function PaginaCampanha({ params }: PageProps<"/campanha/[i
     .select({ id: fichas.id, dados: fichas.dados, visivel: fichas.visivel, donoId: fichas.donoId, donoNome: usuarios.nome })
     .from(fichas)
     .innerJoin(usuarios, eq(fichas.donoId, usuarios.id))
-    .where(and(eq(fichas.campanhaId, id), souMestre ? undefined : or(eq(fichas.visivel, true), eq(fichas.donoId, usuario.id))))
+    .where(and(eq(fichas.campanhaId, id), vejoTudo ? undefined : or(eq(fichas.visivel, true), eq(fichas.donoId, usuario.id))))
     .orderBy(usuarios.nome, desc(fichas.atualizadoEm));
 
   const nomeMestre = jogadores.find((j) => j.id === campanha.mestreId)?.nome;
 
   return (
     <div className="space-y-8">
+      <EntrarNaMesa campanha={{ id, nome: campanha.nome }} />
       <div>
         <Link href="/" className="text-sm text-suave hover:text-texto">
           ← Início
@@ -50,9 +55,10 @@ export default async function PaginaCampanha({ params }: PageProps<"/campanha/[i
             <p className="text-suave">
               Mestre: <span className="text-ouro">{nomeMestre}</span>
               {souMestre && " (você)"}
+              {papel.viaAdmin && <span className="ml-2 rounded bg-ouro px-1.5 py-0.5 text-xs text-[#2a1d00]">acesso de admin</span>}
             </p>
           </div>
-          <AcoesCampanha campanhaId={id} souMestre={souMestre} />
+          {!papel.viaAdmin && <AcoesCampanha campanhaId={id} souMestre={souMestre} />}
         </div>
       </div>
 
@@ -86,14 +92,16 @@ export default async function PaginaCampanha({ params }: PageProps<"/campanha/[i
           <div>
             <h2 className="font-titulo text-2xl">Fichas da campanha</h2>
             <p className="text-sm text-suave">
-              {souMestre
-                ? "Como Mestre, você vê e edita todas, inclusive as ocultas."
+              {vejoTudo
+                ? `Como ${papel.viaAdmin ? "admin" : "Mestre"}, você vê e edita todas, inclusive as ocultas.`
                 : "Fichas 🔒 ocultas só aparecem para o dono e para o Mestre."}
             </p>
           </div>
-          <form action={criarFicha.bind(null, id)}>
-            <button className="botao-ouro">+ Nova ficha nesta campanha</button>
-          </form>
+          {!papel.viaAdmin && (
+            <form action={criarFicha.bind(null, id)}>
+              <button className="botao-ouro">+ Nova ficha nesta campanha</button>
+            </form>
+          )}
         </div>
         <CartoesFichas
           linhas={lista.map((l) => ({ ...l, donoNome: l.donoId === usuario.id ? "você" : l.donoNome }))}

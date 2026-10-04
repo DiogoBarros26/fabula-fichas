@@ -5,8 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
-import { campanhas, fichas, membros } from "@/db/schema";
+import { campanhas, faixas, fichas, membros } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth";
+import { apagarArquivos } from "@/lib/mesa";
 
 export type EstadoCampanha = { erro?: string };
 
@@ -73,8 +74,16 @@ export async function removerJogador(campanhaId: string, usuarioId: string) {
 export async function excluirCampanha(campanhaId: string) {
   const usuario = await exigirUsuario();
   const banco = await db();
+  const arquivos = (
+    await banco.select({ url: faixas.url }).from(faixas).where(and(eq(faixas.campanhaId, campanhaId), eq(faixas.tipo, "arquivo")))
+  ).map((f) => f.url);
   // As fichas não são apagadas: o banco apenas as desvincula (on delete set null).
-  await banco.delete(campanhas).where(and(eq(campanhas.id, campanhaId), eq(campanhas.mestreId, usuario.id)));
+  const [apagada] = await banco
+    .delete(campanhas)
+    .where(and(eq(campanhas.id, campanhaId), eq(campanhas.mestreId, usuario.id)))
+    .returning({ id: campanhas.id });
+  // Os MP3 enviados para a playlist saem junto (as faixas já foram apagadas em cascata).
+  if (apagada) await apagarArquivos(arquivos);
   revalidatePath("/", "layout");
   redirect("/");
 }

@@ -10,9 +10,13 @@ import {
   PERFIS_ATRIBUTOS,
   avisos,
   calcular,
+  type AtributoId,
+  type Arma,
   type Dado,
   type Ficha,
 } from "@/lib/regras";
+import { lerDano, lerPrecisao } from "@/lib/dados";
+import { rolar } from "@/components/mesa/estado";
 import { SecaoClasses, SecaoEquipamento } from "./secoes-classe-equipamento";
 import { definirCampanhaFicha, definirVisibilidade, excluirFicha, salvarFicha } from "@/app/actions";
 
@@ -28,6 +32,7 @@ export function EditorFicha({
   minhasCampanhas,
   ehDono,
   ehMestre,
+  viaAdmin,
   donoNome,
 }: {
   id: string;
@@ -37,6 +42,7 @@ export function EditorFicha({
   minhasCampanhas: Campanha[];
   ehDono: boolean;
   ehMestre: boolean;
+  viaAdmin: boolean;
   donoNome: string;
 }) {
   const podeEditar = ehDono || ehMestre;
@@ -70,6 +76,35 @@ export function EditorFicha({
   const c = calcular(f);
   const listaAvisos = avisos(f);
 
+  // Rolagens: clique no dado de dois atributos (pode ser o mesmo duas vezes) para fazer um teste.
+  const [escolha, setEscolha] = useState<AtributoId[]>([]);
+  const [bonusTeste, setBonusTeste] = useState(0);
+  const [rolando, setRolando] = useState(false);
+  const [erroRolagem, setErroRolagem] = useState("");
+  const sigla = (a: AtributoId) => ATRIBUTOS.find((x) => x.id === a)!.sigla;
+  const rolarTeste = async (atributos: AtributoId[], bonus: number, rotulo: string, dano?: { base: number; tipo: string }) => {
+    setRolando(true);
+    setErroRolagem("");
+    try {
+      await rolar({ rotulo, tipo: "teste", dados: atributos.map((a) => ({ faces: c.atual[a], rotulo: sigla(a) })), bonus, dano }, id);
+    } catch {
+      setErroRolagem("Não deu para rolar. Tente de novo.");
+    } finally {
+      setRolando(false);
+    }
+  };
+  const escolherAtributo = (a: AtributoId) => {
+    const nova = [...escolha, a];
+    if (nova.length < 2) return setEscolha(nova);
+    setEscolha([]);
+    rolarTeste(nova, bonusTeste, `Teste de ${nova.map(sigla).join(" + ")}`);
+  };
+  const rolarArma = (arma: Arma) => {
+    const precisao = lerPrecisao(arma.precisao);
+    if (!precisao) return;
+    rolarTeste(precisao.atributos, precisao.bonus + bonusTeste, `${arma.nome || "Arma"} — Precisão`, lerDano(arma.dano) ?? undefined);
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -80,7 +115,7 @@ export function EditorFicha({
           {podeEditar && <StatusSalvar status={status} />}
           {!ehDono && (
             <span className="rounded-md bg-black/30 px-3 py-1 text-sm text-suave">
-              Ficha de {donoNome} · {ehMestre ? "você é o Mestre desta campanha" : "somente leitura"}
+              Ficha de {donoNome} · {viaAdmin ? "acesso de admin" : ehMestre ? "você é o Mestre desta campanha" : "somente leitura"}
             </span>
           )}
         </div>
@@ -207,14 +242,57 @@ export function EditorFicha({
           {/* Atributos */}
           <section className="janela p-4">
             <h2 className="titulo-secao">Atributos</h2>
+            {podeEditar && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-ouro/30 bg-ouro/5 px-3 py-2 text-sm">
+                <span className="text-suave">Teste:</span>
+                {[0, 1].map((i) => (
+                  <span key={i} className={`rounded border px-2 py-0.5 font-titulo ${escolha[i] ? "border-ouro text-ouro" : "border-white/20 text-suave"}`}>
+                    {escolha[i] ? `${sigla(escolha[i])} d${c.atual[escolha[i]]}` : "?"}
+                  </span>
+                ))}
+                <label className="flex items-center gap-1" title="Somado a todas as rolagens da ficha (atributos e armas)">
+                  <span className="text-suave">bônus</span>
+                  <input
+                    type="number"
+                    className="campo w-14 py-0.5"
+                    value={bonusTeste}
+                    onChange={(e) => setBonusTeste(Math.max(-99, Math.min(99, Number(e.target.value) || 0)))}
+                  />
+                </label>
+                {escolha.length > 0 && (
+                  <button className="botao px-2 py-0.5 text-xs" onClick={() => setEscolha([])}>
+                    limpar
+                  </button>
+                )}
+                <span className="basis-full text-xs text-suave">
+                  {rolando ? "Rolando…" : "Clique no 🎲 de dois atributos para rolar (pode ser o mesmo duas vezes)."}
+                  {erroRolagem && <span className="ml-1 text-pv">{erroRolagem}</span>}
+                </span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               {ATRIBUTOS.map((a) => {
                 const reduzido = c.atual[a.id] !== f.atributos[a.id];
+                const vezes = escolha.filter((x) => x === a.id).length;
                 return (
-                  <div key={a.id} className="rounded-md bg-black/25 p-3" title={a.descricao}>
-                    <div className="flex items-baseline justify-between">
+                  <div key={a.id} className={`rounded-md bg-black/25 p-3 ${vezes ? "ring-2 ring-ouro" : ""}`} title={a.descricao}>
+                    <div className="flex items-center justify-between gap-2">
                       <span className="font-titulo">{a.nome}</span>
-                      <span className="text-xs text-suave">{a.sigla}</span>
+                      {podeEditar ? (
+                        <button
+                          type="button"
+                          className="group flex items-center gap-1 rounded-md border border-ouro/60 bg-ouro/10 px-2 py-0.5 text-sm text-ouro hover:bg-ouro/25"
+                          title={`Rolar ${a.sigla} (d${c.atual[a.id]}) — escolha dois atributos`}
+                          disabled={rolando}
+                          onClick={() => escolherAtributo(a.id)}
+                        >
+                          <span className="inline-block group-active:animate-[rolar-dado_.4s]">🎲</span>
+                          {a.sigla}
+                          {vezes > 0 && <span className="text-xs">×{vezes}</span>}
+                        </button>
+                      ) : (
+                        <span className="text-xs text-suave">{a.sigla}</span>
+                      )}
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <select
@@ -346,7 +424,7 @@ export function EditorFicha({
 
         <div className="space-y-5">
           <SecaoClasses f={f} set={set} avisos={listaAvisos} />
-          <SecaoEquipamento f={f} set={set} />
+          <SecaoEquipamento f={f} set={set} rolarArma={podeEditar ? rolarArma : undefined} />
 
           {/* Laços */}
           <section className="janela p-4">

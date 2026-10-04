@@ -5,6 +5,7 @@ import { campanhas, usuarios } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth";
 import { acessoFicha, minhasCampanhas } from "@/lib/permissoes";
 import { normalizarFicha } from "@/lib/regras";
+import { EntrarNaMesa } from "@/components/mesa/mesa";
 import { EditorFicha } from "./editor-ficha";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -25,6 +26,8 @@ export default async function PaginaFicha({ params }: PageProps<"/ficha/[id]">) 
     : [];
 
   return (
+    <>
+    {campanha && <EntrarNaMesa campanha={campanha} />}
     <EditorFicha
       id={id}
       inicial={normalizarFicha(ficha.dados)}
@@ -33,7 +36,9 @@ export default async function PaginaFicha({ params }: PageProps<"/ficha/[id]">) 
       minhasCampanhas={acesso.ehDono ? (await minhasCampanhas(usuario.id)).map(({ id, nome }) => ({ id, nome })) : []}
       ehDono={acesso.ehDono}
       ehMestre={acesso.ehMestre}
+      viaAdmin={acesso.viaAdmin}
       donoNome={dono?.nome ?? ""}
     />
+    </>
   );
 }

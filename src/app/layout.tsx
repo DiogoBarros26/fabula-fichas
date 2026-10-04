@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Cinzel, Nunito_Sans } from "next/font/google";
 import { ehAdmin, usuarioAtual } from "@/lib/auth";
+import { Mesa } from "@/components/mesa/mesa";
 import { sair } from "./entrar/actions";
 import "./globals.css";
 
@@ -38,7 +39,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             )}
           </div>
         </header>
-        <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 pt-6 pb-24">{children}</main>
+        {usuario && <Mesa usuarioId={usuario.id} />}
       </body>
     </html>
   );
