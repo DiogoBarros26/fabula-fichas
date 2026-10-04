@@ -58,7 +58,8 @@ export const PARES_EMOCOES = [
 /** pericias: id da habilidade -> quantas vezes foi adquirida (SL). habilidades: anotações livres. */
 export type ClasseFicha = { classeId: string; nivel: number; pericias: Record<string, number>; habilidades: string };
 export type Laco = { nome: string; emocoes: string[] };
-export type Magia = { nome: string; pm: string; alvo: string; duracao: string; efeito: string };
+/** Ofensiva: exige Teste Mágico 【AST + VON】; "dano" no formato das armas ("RA + 15 fogo"). */
+export type Magia = { nome: string; pm: string; alvo: string; duracao: string; efeito: string; ofensiva?: boolean; dano?: string };
 export type Arma = { nome: string; precisao: string; dano: string; notas: string; marcial?: boolean; distancia?: boolean };
 
 export type Ficha = {

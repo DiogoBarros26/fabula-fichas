@@ -385,6 +385,8 @@ function InvocarLaco({ r }: { r: Rolagem }) {
   if (!fichaAberta || fichaAberta.id !== r.fichaId || x.tipo !== "teste" || x.laco || x.critico || x.falha) return null;
 
   const lacos = fichaAberta.lacos.map((l, i) => ({ ...l, i, forca: Math.min(3, l.emocoes.length) })).filter((l) => l.forca > 0);
+  // Sem nenhum Laço com emoção não há o que invocar: o botão nem aparece.
+  if (lacos.length === 0) return null;
   const semPontos = fichaAberta.pontosFabula < 1;
   const invocar = async (indice: number) => {
     setEnviando(true);
@@ -402,17 +404,11 @@ function InvocarLaco({ r }: { r: Rolagem }) {
       {!aberto ? (
         <button
           className="text-pi hover:underline disabled:text-suave disabled:no-underline"
-          disabled={semPontos || lacos.length === 0}
-          title={
-            semPontos
-              ? "Sem Pontos de Fábula"
-              : lacos.length === 0
-                ? "Nenhum Laço com emoção marcada na ficha"
-                : "Gasta 1 Ponto de Fábula e soma a força do Laço ao resultado"
-          }
+          disabled={semPontos}
+          title={semPontos ? "Sem Pontos de Fábula" : "Gasta 1 Ponto de Fábula e soma a força do Laço ao resultado"}
           onClick={() => setAberto(true)}
         >
-          ✦ Invocar Laço{semPontos ? " (sem Pontos de Fábula)" : lacos.length === 0 ? " (nenhum Laço com emoção)" : ""}
+          ✦ Invocar Laço{semPontos ? " (sem Pontos de Fábula)" : ""}
         </button>
       ) : (
         <div className="space-y-1 rounded border border-pi/40 bg-black/30 p-1.5">

@@ -14,8 +14,10 @@ import {
   type Arma,
   type Dado,
   type Ficha,
+  type Magia,
 } from "@/lib/regras";
 import { lerDano, lerPrecisao } from "@/lib/dados";
+import { CLASSES_COM_MAGIAS, MAGIAS, TESTE_MAGICO } from "@/lib/magias";
 import { definirFichaAberta, rolar } from "@/components/mesa/estado";
 import { SecaoClasses, SecaoEquipamento } from "./secoes-classe-equipamento";
 import { definirCampanhaFicha, definirVisibilidade, excluirFicha, salvarFicha } from "@/app/actions";
@@ -113,6 +115,10 @@ export function EditorFicha({
     if (escolha.length < 2) return;
     setEscolha([]);
     rolarTeste(escolha, bonusTeste, `Teste de ${escolha.map(sigla).join(" + ")}`);
+  };
+  const rolarMagia = (magia: Magia) => {
+    const teste = lerPrecisao(TESTE_MAGICO)!;
+    rolarTeste(teste.atributos, bonusTeste, `${magia.nome || "Magia"} — Teste Mágico`, lerDano(magia.dano ?? "") ?? undefined);
   };
   const rolarArma = (arma: Arma) => {
     const precisao = lerPrecisao(arma.precisao);
@@ -508,12 +514,46 @@ export function EditorFicha({
 
           {/* Magias */}
           <section className="janela p-4">
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 className="titulo-secao mb-0">Magias</h2>
-              <button className="botao" onClick={() => set("magias", [...f.magias, { nome: "", pm: "", alvo: "", duracao: "", efeito: "" }])}>
-                + Magia
-              </button>
+              <div className="flex min-w-0 flex-wrap gap-2">
+                <select
+                  className="campo w-full min-w-0 text-sm sm:w-auto sm:max-w-full"
+                  value=""
+                  onChange={(e) => {
+                    const x = MAGIAS.find((m) => m.id === e.target.value);
+                    if (!x) return;
+                    const { nome, pm, alvo, duracao, efeito, ofensiva, dano } = x;
+                    set("magias", [...f.magias, { nome, pm, alvo, duracao, efeito, ofensiva, dano }]);
+                  }}
+                >
+                  <option value="" disabled hidden className="bg-janela">
+                    + Magia do livro…
+                  </option>
+                  {/* As classes do personagem aparecem primeiro. */}
+                  {[...CLASSES_COM_MAGIAS]
+                    .sort((a, b) => Number(f.classes.some((c) => c.classeId === b.id)) - Number(f.classes.some((c) => c.classeId === a.id)))
+                    .map((cl) => (
+                      <optgroup key={cl.id} label={cl.nome} className="bg-janela">
+                        {MAGIAS.filter((m) => m.classe === cl.id).map((m) => (
+                          <option key={m.id} value={m.id} className="bg-janela" disabled={f.magias.some((x) => x.nome === m.nome)}>
+                            {m.nome} — {m.pm} PM · {m.alvo} · {m.duracao}
+                            {m.ofensiva ? " · ofensiva" : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                </select>
+                <button className="botao" onClick={() => set("magias", [...f.magias, { nome: "", pm: "", alvo: "", duracao: "", efeito: "" }])}>
+                  + Outra
+                </button>
+              </div>
             </div>
+            {f.magias.length === 0 && (
+              <p className="text-sm text-suave">
+                Elementalista, Entropista e Espiritualista aprendem uma magia da lista da classe a cada vez que pegam a habilidade de magia.
+              </p>
+            )}
             <div className="space-y-2">
               {f.magias.map((m, i) => {
                 const atualizar = (parcial: Partial<typeof m>) => set("magias", f.magias.map((x, j) => (j === i ? { ...x, ...parcial } : x)));
@@ -527,6 +567,32 @@ export function EditorFicha({
                       ✕
                     </button>
                     <textarea className="campo col-span-full min-h-12 text-sm" placeholder="Efeito" value={m.efeito} onChange={(e) => atualizar({ efeito: e.target.value })} />
+                    <div className="col-span-full flex flex-wrap items-center gap-2 text-sm">
+                      <label className="flex cursor-pointer items-center gap-1.5" title={`Feitiços ofensivos exigem Teste Mágico 【${TESTE_MAGICO}】`}>
+                        <input type="checkbox" className="accent-[var(--ouro)]" checked={!!m.ofensiva} onChange={(e) => atualizar({ ofensiva: e.target.checked })} />
+                        Ofensiva
+                      </label>
+                      {m.ofensiva && (
+                        <>
+                          <input
+                            className="campo w-auto min-w-0 flex-1 py-1 text-sm"
+                            placeholder="Dano (ex.: RA + 15 fogo) — vazio se não causa dano"
+                            value={m.dano ?? ""}
+                            onChange={(e) => atualizar({ dano: e.target.value })}
+                          />
+                          {podeEditar && (
+                            <button
+                              className="botao border-ouro/60 px-2 py-1 text-ouro"
+                              disabled={rolando}
+                              title={`Rolar Teste Mágico 【${TESTE_MAGICO}】${m.dano ? " e o dano" : ""}`}
+                              onClick={() => rolarMagia(m)}
+                            >
+                              🎲 {TESTE_MAGICO}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 );
               })}
