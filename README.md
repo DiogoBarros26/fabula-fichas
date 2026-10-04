@@ -1,36 +1,27 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fichas — Fabula Ultima
 
-## Getting Started
+Site para o grupo guardar as fichas de personagem de Fabula Ultima: login, campanhas com código de convite, fichas com cálculos automáticos, habilidades e equipamentos do livro básico.
 
-First, run the development server:
+Next.js 16 · Drizzle ORM · Postgres (Neon em produção) · hospedado na Vercel.
+
+## Rodar no computador
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+O `npm run dev` sobe um Postgres local (copiado para `%LOCALAPPDATA%\fabula-fichas`, porque o Postgres não funciona em caminhos com acento) e abre o site em http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variáveis de ambiente
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Nome | Para quê |
+|------|----------|
+| `DATABASE_URL` | Banco Postgres. Local: definido pelo `npm run dev`. Produção: criado pela integração Neon. |
+| `ADMIN_USUARIOS` | Usuários administradores do site, separados por vírgula (ex.: `admin`). |
+| `CODIGO_GRUPO` | Código pedido no cadastro; impede que estranhos criem conta. |
 
-## Learn More
+## Scripts
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run db:setup` — cria/atualiza as tabelas no banco de `DATABASE_URL` (`src/db/schema.sql`).
+- `node --env-file=<arquivo .env> scripts/criar-admin.mjs [usuario]` — cria o admin ou redefine a senha dele, gerando uma senha forte.
