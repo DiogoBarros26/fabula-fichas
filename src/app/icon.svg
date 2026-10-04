@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- A estrela ✦ do logo, dourada sobre o azul das janelas. -->
+  <rect width="64" height="64" rx="14" fill="#16205a" />
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="none" stroke="#c9d4ff" stroke-opacity="0.5" stroke-width="2" />
+  <path d="M32 7 C34.5 22 42 29.5 57 32 C42 34.5 34.5 42 32 57 C29.5 42 22 34.5 7 32 C22 29.5 29.5 22 32 7 Z" fill="#f4c95d" />
+</svg>
