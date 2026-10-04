@@ -27,7 +27,7 @@ export async function cadastrar(_: EstadoForm, form: FormData): Promise<EstadoFo
   const codigo = String(form.get("codigo") ?? "").trim();
 
   // Com CODIGO_GRUPO definido, só quem souber o código consegue criar conta.
-  const codigoGrupo = process.env.CODIGO_GRUPO;
+  const codigoGrupo = process.env.CODIGO_GRUPO?.trim();
   if (codigoGrupo && codigo !== codigoGrupo) return { erro: "Código do grupo inválido." };
   if (!/^[a-z0-9_.-]{3,30}$/.test(usuario)) return { erro: "Usuário deve ter 3 a 30 caracteres: letras, números, ponto, hífen ou _." };
   if (!nome) return { erro: "Informe seu nome." };
