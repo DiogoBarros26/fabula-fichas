@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, gt, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, or } from "drizzle-orm";
 import { del } from "@vercel/blob";
 import { db } from "@/db";
 import { faixas, musicaCampanha, rolagens, type TipoFaixa } from "@/db/schema";
@@ -11,12 +11,14 @@ export type EstadoMesa = {
   agora: number;
   ehMestre: boolean;
   rolagens: Rolagem[];
+  /** Ids que ainda existem a partir de "de": o que sumir daqui foi apagado pelo Mestre. */
+  existentes: number[];
   faixas: Faixa[];
   musica: EstadoMusica;
 };
 
 /** Tudo que a mesa precisa a cada atualização: rolagens novas (depois de "desde"), playlist e o que está tocando. */
-export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre: boolean, desde: number): Promise<EstadoMesa> {
+export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre: boolean, desde: number, de: number): Promise<EstadoMesa> {
   const banco = await db();
   // Rolagens secretas só aparecem para quem rolou e para o Mestre.
   const visiveis = ehMestre ? undefined : or(eq(rolagens.secreta, false), eq(rolagens.usuarioId, usuarioId));
@@ -26,6 +28,14 @@ export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre
     .where(and(eq(rolagens.campanhaId, campanhaId), gt(rolagens.id, desde), visiveis))
     .orderBy(desc(rolagens.id))
     .limit(40);
+
+  const existentes = de
+    ? await banco
+        .select({ id: rolagens.id })
+        .from(rolagens)
+        .where(and(eq(rolagens.campanhaId, campanhaId), gte(rolagens.id, de), visiveis))
+        .limit(500)
+    : [];
 
   const lista = await banco
     .select({ id: faixas.id, titulo: faixas.titulo, url: faixas.url, tipo: faixas.tipo })
@@ -39,6 +49,7 @@ export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre
     agora: Date.now(),
     ehMestre,
     rolagens: linhas.reverse().map((r) => ({ ...r, criadoEm: r.criadoEm.toISOString() })),
+    existentes: existentes.map((r) => r.id),
     faixas: lista,
     musica: musica
       ? { faixaId: musica.faixaId, tocando: musica.tocando, posicao: musica.posicao, repetir: musica.repetir, atualizadoEm: musica.atualizadoEm.getTime() }

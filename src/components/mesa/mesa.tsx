@@ -5,12 +5,14 @@ import { FACES_LIVRES, descreverDados, type Rolagem } from "@/lib/dados";
 import type { EstadoMesa } from "@/lib/mesa";
 import {
   atualizarServidor,
+  conferirExistentes,
   definirSecreta,
   definirSom,
   dispensarAviso,
   entrarNaMesa,
   lerMesa,
   receberRolagens,
+  apagarRolagens,
   rolar,
   sairDaMesa,
   trocarUsuario,
@@ -50,10 +52,12 @@ export function Mesa({ usuarioId }: { usuarioId: string }) {
     let primeira = true;
     const buscar = async () => {
       clearTimeout(timer);
-      const desde = Math.max(0, ...lerMesa().rolagens.map((r) => r.id));
+      const ids = lerMesa().rolagens.map((r) => r.id).filter((x) => x > 0);
+      const desde = Math.max(0, ...ids);
+      const de = ids.length ? Math.min(...ids) : 0;
       try {
         const antes = Date.now();
-        const resp = await fetch(`/api/mesa/${campanhaId}?desde=${desde}`, { cache: "no-store" });
+        const resp = await fetch(`/api/mesa/${campanhaId}?desde=${desde}&de=${de}`, { cache: "no-store" });
         if (!ativo) return;
         if (resp.status === 403 || resp.status === 404) return sairDaMesa();
         if (resp.ok) {
@@ -61,6 +65,7 @@ export function Mesa({ usuarioId }: { usuarioId: string }) {
           if (!ativo || lerMesa().campanha?.id !== campanhaId) return;
           const depois = Date.now();
           atualizarServidor(dados, dados.agora - (antes + depois) / 2);
+          conferirExistentes(de, desde, dados.existentes);
           receberRolagens(dados.rolagens, !primeira);
           primeira = false;
         }
@@ -143,30 +148,40 @@ export function Mesa({ usuarioId }: { usuarioId: string }) {
 
 function PainelDados() {
   const mesa = useMesa();
-  const [qtd, setQtd] = useState(1);
+  const [monte, setMonte] = useState<number[]>([]);
   const [bonus, setBonus] = useState(0);
   const [erro, setErro] = useState("");
   const [rolando, setRolando] = useState(false);
+  const [confirmarLimpeza, setConfirmarLimpeza] = useState(false);
   const fim = useRef<HTMLDivElement>(null);
+  const ehMestre = !!mesa.servidor?.ehMestre;
 
   useEffect(() => {
     fim.current?.scrollIntoView({ block: "end" });
   }, [mesa.rolagens.length]);
 
-  const rolarLivre = async (faces: number) => {
+  // Monte de dados: cada clique põe um dado; com 2 ou mais, dá para rolar (regras de teste de Fabula Ultima).
+  const rolarMonte = async () => {
+    if (monte.length < 2) return;
     setErro("");
     setRolando(true);
     try {
-      await rolar({
-        rotulo: `${qtd}d${faces}${bonus ? (bonus > 0 ? ` + ${bonus}` : ` − ${-bonus}`) : ""}`,
-        tipo: "livre",
-        dados: Array.from({ length: qtd }, () => ({ faces })),
-        bonus,
-      });
+      const dados = [...monte].sort((a, b) => a - b);
+      await rolar({ rotulo: descreverMonte(dados, bonus), tipo: "teste", dados: dados.map((faces) => ({ faces })), bonus });
+      setMonte([]);
     } catch {
       setErro("Não deu para rolar. Tente de novo.");
     } finally {
       setRolando(false);
+    }
+  };
+
+  const executar = async (acao: () => Promise<unknown>) => {
+    setErro("");
+    try {
+      await acao();
+    } catch {
+      setErro("Não deu para apagar. Tente de novo.");
     }
   };
 
@@ -175,42 +190,104 @@ function PainelDados() {
       <div className="min-h-32 flex-1 space-y-2 overflow-y-auto p-3">
         {mesa.rolagens.length === 0 && (
           <p className="text-center text-sm text-suave">
-            Nenhuma rolagem ainda. Clique nos dados dos atributos ou das armas na ficha, ou use os dados abaixo.
+            Nenhuma rolagem ainda. Monte uma rolagem com os dados dos atributos na ficha ou com os dados abaixo.
           </p>
         )}
         {mesa.rolagens.map((r) => (
-          <CartaoRolagem key={r.id} r={r} />
+          <CartaoRolagem key={r.id} r={r} onApagar={ehMestre && r.id > 0 ? () => executar(() => apagarRolagens([r.id])) : undefined} />
         ))}
         <div ref={fim} />
       </div>
+      {ehMestre && mesa.rolagens.some((r) => r.id > 0) && (
+        <div className="flex items-center justify-end gap-2 border-t border-white/15 px-3 py-1.5 text-xs">
+          {confirmarLimpeza ? (
+            <>
+              <span>Apagar todo o histórico para todos?</span>
+              <button
+                className="botao border-pv px-2 py-0.5 text-xs text-pv"
+                onClick={() => {
+                  setConfirmarLimpeza(false);
+                  executar(() => apagarRolagens("todas"));
+                }}
+              >
+                Apagar
+              </button>
+              <button className="botao px-2 py-0.5 text-xs" onClick={() => setConfirmarLimpeza(false)}>
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button className="text-suave hover:text-pv" onClick={() => setConfirmarLimpeza(true)}>
+              🗑 Limpar histórico
+            </button>
+          )}
+        </div>
+      )}
       <div className="space-y-2 border-t border-white/15 p-3">
         <div className="grid grid-cols-6 gap-1.5">
           {FACES_LIVRES.map((f) => (
-            <button key={f} className="botao px-0 font-titulo" disabled={rolando} onClick={() => rolarLivre(f)}>
+            <button
+              key={f}
+              className="botao px-0 font-titulo"
+              disabled={rolando || monte.length >= MAX_DADOS}
+              title={`Pôr um d${f} na rolagem`}
+              onClick={() => setMonte((atual) => (atual.length < MAX_DADOS ? [...atual, f] : atual))}
+            >
               d{f}
             </button>
           ))}
         </div>
+        <div className="flex min-h-8 flex-wrap items-center gap-1.5 rounded-md bg-black/25 px-2 py-1.5 text-sm">
+          {monte.length === 0 ? (
+            <span className="text-xs text-suave">Clique nos dados acima: 2 ou mais, iguais ou diferentes.</span>
+          ) : (
+            monte.map((f, i) => (
+              <button
+                key={i}
+                className="rounded border border-ouro px-1.5 py-0.5 font-titulo text-xs text-ouro hover:border-pv hover:text-pv"
+                title="Tirar este dado"
+                onClick={() => setMonte(monte.filter((_, j) => j !== i))}
+              >
+                d{f}
+              </button>
+            ))
+          )}
+          {monte.length > 0 && (
+            <button className="ml-auto text-xs text-suave hover:text-texto" onClick={() => setMonte([])}>
+              limpar
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-2 text-sm">
-          <label className="flex items-center gap-1">
-            <span className="text-suave">Qtd.</span>
-            <input type="number" className="campo w-14 py-1" min={1} max={10} value={qtd} onChange={(e) => setQtd(Math.min(10, Math.max(1, Number(e.target.value) || 1)))} />
-          </label>
           <label className="flex items-center gap-1">
             <span className="text-suave">Bônus</span>
             <input type="number" className="campo w-16 py-1" value={bonus} onChange={(e) => setBonus(Math.max(-99, Math.min(99, Number(e.target.value) || 0)))} />
           </label>
           {mesa.campanha && (
-            <label className="ml-auto flex cursor-pointer items-center gap-1 text-xs" title="Rolagens secretas só aparecem para você e para o Mestre">
+            <label className="flex cursor-pointer items-center gap-1 text-xs" title="Rolagens secretas só aparecem para você e para o Mestre">
               <input type="checkbox" className="accent-[var(--ouro)]" checked={mesa.secreta} onChange={(e) => definirSecreta(e.target.checked)} />
               🔒 Secreta
             </label>
           )}
+          <button className="botao-ouro ml-auto px-3 py-1.5" disabled={monte.length < 2 || rolando} onClick={rolarMonte}>
+            🎲 Rolar{monte.length >= 2 ? ` ${monte.length}` : ""}
+          </button>
         </div>
         {erro && <p className="text-xs text-pv">{erro}</p>}
       </div>
     </>
   );
+}
+
+const MAX_DADOS = 10;
+
+/** "2d8 + d12 + 1" */
+function descreverMonte(dados: number[], bonus: number) {
+  const grupos = [...new Set(dados)].map((f) => {
+    const n = dados.filter((x) => x === f).length;
+    return `${n > 1 ? n : ""}d${f}`;
+  });
+  return grupos.join(" + ") + (bonus ? (bonus > 0 ? ` + ${bonus}` : ` − ${-bonus}`) : "");
 }
 
 function Aviso({ r }: { r: Rolagem }) {
@@ -225,7 +302,7 @@ function Aviso({ r }: { r: Rolagem }) {
   );
 }
 
-export function CartaoRolagem({ r }: { r: Rolagem }) {
+export function CartaoRolagem({ r, onApagar }: { r: Rolagem; onApagar?: () => void }) {
   const { resultado: x } = r;
   const hora = new Date(r.criadoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const destaque = x.critico ? "border-ouro bg-ouro/15" : x.falha ? "border-pv bg-pv/15" : "border-white/10 bg-black/25";
@@ -236,6 +313,11 @@ export function CartaoRolagem({ r }: { r: Rolagem }) {
         {r.secreta && <span title="Só você e o Mestre veem">🔒</span>}
         {r.id < 0 && <span className="text-suave" title="Ficha particular: só você viu esta rolagem">particular</span>}
         <span className="ml-auto shrink-0 text-suave">{hora}</span>
+        {onApagar && (
+          <button className="shrink-0 text-suave hover:text-pv" title="Apagar do histórico (para todos)" aria-label="Apagar rolagem" onClick={onApagar}>
+            ✕
+          </button>
+        )}
       </div>
       <div className="mt-1 flex items-center gap-3">
         <div className="min-w-0 flex-1">

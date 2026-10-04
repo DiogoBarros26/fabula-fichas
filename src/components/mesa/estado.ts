@@ -5,7 +5,7 @@
 import { useSyncExternalStore } from "react";
 import type { PedidoRolagem, Rolagem } from "@/lib/dados";
 import type { EstadoMesa } from "@/lib/mesa";
-import { rolar as rolarNoServidor } from "@/app/mesa/actions";
+import { apagarRolagens as apagarNoServidor, rolar as rolarNoServidor } from "@/app/mesa/actions";
 
 export type CampanhaMesa = { id: string; nome: string };
 
@@ -93,6 +93,23 @@ export function receberRolagens(novas: Rolagem[], avisar: boolean) {
     rolagens: [...estado.rolagens, ...ineditas].slice(-60),
     avisos: avisar ? [...estado.avisos, ...ineditas].slice(-4) : estado.avisos,
   });
+}
+
+/** Tira do histórico as rolagens entre "de" e "ate" que o servidor não tem mais (apagadas pelo Mestre). */
+export function conferirExistentes(de: number, ate: number, existentes: number[]) {
+  const ainda = new Set(existentes);
+  const apagada = (r: Rolagem) => r.id >= de && r.id <= ate && !ainda.has(r.id);
+  if (!de || !estado.rolagens.some(apagada)) return;
+  mudar({ rolagens: estado.rolagens.filter((r) => !apagada(r)), avisos: estado.avisos.filter((r) => !apagada(r)) });
+}
+
+/** Só o Mestre: apaga na hora para ele e grava no servidor (os outros veem na próxima atualização). */
+export async function apagarRolagens(ids: number[] | "todas") {
+  const campanha = estado.campanha;
+  if (!campanha) return;
+  const sai = (r: Rolagem) => r.id > 0 && (ids === "todas" || ids.includes(r.id));
+  mudar({ rolagens: estado.rolagens.filter((r) => !sai(r)), avisos: estado.avisos.filter((r) => !sai(r)) });
+  await apagarNoServidor(campanha.id, ids);
 }
 
 export function dispensarAviso(id: number) {

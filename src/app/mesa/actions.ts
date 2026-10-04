@@ -1,7 +1,7 @@
 "use server";
 
 import { randomInt } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { faixas, musicaCampanha, rolagens } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth";
@@ -49,7 +49,16 @@ export async function rolar(pedido: PedidoRolagem, origem: { fichaId?: string; c
 async function exigirMestre(campanhaId: string) {
   const usuario = await exigirUsuario();
   const papel = await papelNaCampanha(campanhaId, usuario.id);
-  if (!papel?.ehMestre) throw new Error("Só o Mestre controla a música.");
+  if (!papel?.ehMestre) throw new Error("Só o Mestre pode fazer isso.");
+}
+
+/** O Mestre apaga rolagens do histórico (algumas ou todas); some para todos na próxima atualização. */
+export async function apagarRolagens(campanhaId: string, ids: number[] | "todas") {
+  await exigirMestre(campanhaId);
+  const banco = await db();
+  const daCampanha = eq(rolagens.campanhaId, campanhaId);
+  if (ids === "todas") await banco.delete(rolagens).where(daCampanha);
+  else if (ids.length) await banco.delete(rolagens).where(and(daCampanha, inArray(rolagens.id, ids.slice(0, 200).map(Number))));
 }
 
 export async function adicionarFaixa(campanhaId: string, url: string, titulo: string) {

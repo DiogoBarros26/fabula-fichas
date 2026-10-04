@@ -3,7 +3,7 @@ import { ATRIBUTOS, type AtributoId } from "./regras";
 
 export const FACES_LIVRES = [4, 6, 8, 10, 12, 20] as const;
 
-/** "teste": dois dados de atributo (regras de Fabula Ultima). "livre": soma simples de dados. */
+/** "teste": 2 ou mais dados, com Resultado Alto e crítico (regras de Fabula Ultima). "livre": soma simples. */
 export type PedidoRolagem = {
   rotulo: string;
   tipo: "teste" | "livre";
@@ -19,7 +19,7 @@ export type ResultadoRolagem = {
   dados: { faces: number; valor: number; rotulo?: string }[];
   bonus: number;
   total: number;
-  /** Resultado Alto: o maior dos dois dados de um teste. */
+  /** Resultado Alto: o maior dado do teste. */
   ra?: number;
   critico?: boolean;
   falha?: boolean;
@@ -38,7 +38,7 @@ export type Rolagem = {
 export function validarPedido(p: PedidoRolagem): PedidoRolagem | null {
   if (!p || (p.tipo !== "teste" && p.tipo !== "livre")) return null;
   if (!Array.isArray(p.dados) || p.dados.length < 1 || p.dados.length > 10) return null;
-  if (p.tipo === "teste" && p.dados.length !== 2) return null;
+  if (p.tipo === "teste" && p.dados.length < 2) return null;
   const facesOk = p.dados.every((d) => [4, 6, 8, 10, 12, 20, 100].includes(d.faces));
   const bonus = Math.trunc(Number(p.bonus) || 0);
   if (!facesOk || Math.abs(bonus) > 99) return null;
@@ -57,10 +57,12 @@ export function resolver(p: PedidoRolagem, sortear: (faces: number) => number): 
   const soma = dados.reduce((t, d) => t + d.valor, 0);
   const resultado: ResultadoRolagem = { rotulo: p.rotulo, tipo: p.tipo, dados, bonus: p.bonus, total: soma + p.bonus };
   if (p.tipo === "teste") {
-    const [a, b] = dados.map((d) => d.valor);
-    resultado.ra = Math.max(a, b);
-    resultado.falha = a === 1 && b === 1;
-    resultado.critico = a === b && a >= 6;
+    // Com 2 dados é a regra do livro; com mais, basta um par de dados iguais.
+    const valores = dados.map((d) => d.valor);
+    const repetidos = valores.filter((v, i) => valores.indexOf(v) !== i);
+    resultado.ra = Math.max(...valores);
+    resultado.falha = repetidos.includes(1);
+    resultado.critico = !resultado.falha && repetidos.some((v) => v >= 6);
     if (p.dano) resultado.dano = { total: resultado.ra + p.dano.base, tipo: p.dano.tipo };
   }
   return resultado;

@@ -14,6 +14,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/mesa/[id]">)
   const papel = await papelNaCampanha(id, usuario.id);
   if (!papel) return NextResponse.json({ erro: "Você não participa dessa campanha." }, { status: 403 });
 
-  const desde = Math.max(0, Number(req.nextUrl.searchParams.get("desde")) || 0);
-  return NextResponse.json(await estadoMesa(id, usuario.id, papel.ehMestre, desde), { headers: { "Cache-Control": "no-store" } });
+  const numero = (nome: string) => Math.max(0, Number(req.nextUrl.searchParams.get(nome)) || 0);
+  const estado = await estadoMesa(id, usuario.id, papel.ehMestre, numero("desde"), numero("de"));
+  return NextResponse.json(estado, { headers: { "Cache-Control": "no-store" } });
 }

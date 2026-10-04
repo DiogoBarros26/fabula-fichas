@@ -20,6 +20,9 @@ import { rolar } from "@/components/mesa/estado";
 import { SecaoClasses, SecaoEquipamento } from "./secoes-classe-equipamento";
 import { definirCampanhaFicha, definirVisibilidade, excluirFicha, salvarFicha } from "@/app/actions";
 
+/** Limite de dados numa rolagem (o mesmo que o servidor aceita). */
+const MAX_DADOS = 10;
+
 type Status = "salvo" | "pendente" | "salvando" | "erro";
 
 type Campanha = { id: string; nome: string };
@@ -76,7 +79,7 @@ export function EditorFicha({
   const c = calcular(f);
   const listaAvisos = avisos(f);
 
-  // Rolagens: clique no dado de dois atributos (pode ser o mesmo duas vezes) para fazer um teste.
+  // Rolagens: cada clique num atributo põe o dado dele no monte; com 2 ou mais dados, o jogador rola.
   const [escolha, setEscolha] = useState<AtributoId[]>([]);
   const [bonusTeste, setBonusTeste] = useState(0);
   const [rolando, setRolando] = useState(false);
@@ -93,11 +96,11 @@ export function EditorFicha({
       setRolando(false);
     }
   };
-  const escolherAtributo = (a: AtributoId) => {
-    const nova = [...escolha, a];
-    if (nova.length < 2) return setEscolha(nova);
+  const escolherAtributo = (a: AtributoId) => setEscolha((atual) => (atual.length < MAX_DADOS ? [...atual, a] : atual));
+  const rolarEscolha = () => {
+    if (escolha.length < 2) return;
     setEscolha([]);
-    rolarTeste(nova, bonusTeste, `Teste de ${nova.map(sigla).join(" + ")}`);
+    rolarTeste(escolha, bonusTeste, `Teste de ${escolha.map(sigla).join(" + ")}`);
   };
   const rolarArma = (arma: Arma) => {
     const precisao = lerPrecisao(arma.precisao);
@@ -245,11 +248,22 @@ export function EditorFicha({
             {podeEditar && (
               <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-ouro/30 bg-ouro/5 px-3 py-2 text-sm">
                 <span className="text-suave">Teste:</span>
-                {[0, 1].map((i) => (
-                  <span key={i} className={`rounded border px-2 py-0.5 font-titulo ${escolha[i] ? "border-ouro text-ouro" : "border-white/20 text-suave"}`}>
-                    {escolha[i] ? `${sigla(escolha[i])} d${c.atual[escolha[i]]}` : "?"}
-                  </span>
+                {escolha.map((a, i) => (
+                  <button
+                    key={i}
+                    className="rounded border border-ouro px-2 py-0.5 font-titulo text-ouro hover:border-pv hover:text-pv"
+                    title="Tirar este dado"
+                    onClick={() => setEscolha(escolha.filter((_, j) => j !== i))}
+                  >
+                    {sigla(a)} d{c.atual[a]}
+                  </button>
                 ))}
+                {escolha.length < 2 &&
+                  Array.from({ length: 2 - escolha.length }, (_, i) => (
+                    <span key={`vazio-${i}`} className="rounded border border-white/20 px-2 py-0.5 font-titulo text-suave">
+                      ?
+                    </span>
+                  ))}
                 <label className="flex items-center gap-1" title="Somado a todas as rolagens da ficha (atributos e armas)">
                   <span className="text-suave">bônus</span>
                   <input
@@ -259,13 +273,18 @@ export function EditorFicha({
                     onChange={(e) => setBonusTeste(Math.max(-99, Math.min(99, Number(e.target.value) || 0)))}
                   />
                 </label>
+                <button className="botao-ouro px-3 py-1" disabled={escolha.length < 2 || rolando} onClick={rolarEscolha}>
+                  🎲 Rolar{escolha.length >= 2 ? ` ${escolha.length} dados` : ""}
+                </button>
                 {escolha.length > 0 && (
                   <button className="botao px-2 py-0.5 text-xs" onClick={() => setEscolha([])}>
                     limpar
                   </button>
                 )}
                 <span className="basis-full text-xs text-suave">
-                  {rolando ? "Rolando…" : "Clique no 🎲 de dois atributos para rolar (pode ser o mesmo duas vezes)."}
+                  {rolando
+                    ? "Rolando…"
+                    : "Clique no 🎲 dos atributos para montar a rolagem: 2 ou mais dados, repetidos ou não. Clique num dado do monte para tirá-lo."}
                   {erroRolagem && <span className="ml-1 text-pv">{erroRolagem}</span>}
                 </span>
               </div>
@@ -282,8 +301,8 @@ export function EditorFicha({
                         <button
                           type="button"
                           className="group flex items-center gap-1 rounded-md border border-ouro/60 bg-ouro/10 px-2 py-0.5 text-sm text-ouro hover:bg-ouro/25"
-                          title={`Rolar ${a.sigla} (d${c.atual[a.id]}) — escolha dois atributos`}
-                          disabled={rolando}
+                          title={`Pôr um d${c.atual[a.id]} de ${a.sigla} na rolagem`}
+                          disabled={rolando || escolha.length >= MAX_DADOS}
                           onClick={() => escolherAtributo(a.id)}
                         >
                           <span className="inline-block group-active:animate-[rolar-dado_.4s]">🎲</span>
