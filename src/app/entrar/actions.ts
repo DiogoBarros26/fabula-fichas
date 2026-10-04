@@ -31,7 +31,7 @@ export async function cadastrar(_: EstadoForm, form: FormData): Promise<EstadoFo
   if (codigoGrupo && codigo !== codigoGrupo) return { erro: "Código do grupo inválido." };
   if (!/^[a-z0-9_.-]{3,30}$/.test(usuario)) return { erro: "Usuário deve ter 3 a 30 caracteres: letras, números, ponto, hífen ou _." };
   if (!nome) return { erro: "Informe seu nome." };
-  if (senha.length < 6) return { erro: "A senha precisa ter pelo menos 6 caracteres." };
+  if (senha.length < 8) return { erro: "A senha precisa ter pelo menos 8 caracteres." };
 
   const banco = await db();
   const [existente] = await banco.select({ id: usuarios.id }).from(usuarios).where(eq(usuarios.usuario, usuario));

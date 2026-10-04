@@ -36,7 +36,7 @@ export function FormulariosEntrada({ pedeCodigo }: { pedeCodigo: boolean }) {
           <form action={acaoCadastro} className="space-y-3">
             <Campo nome="nome" rotulo="Seu nome" autoComplete="name" />
             <Campo nome="usuario" rotulo="Usuário (para entrar)" autoComplete="username" />
-            <Campo nome="senha" rotulo="Senha (mín. 6 caracteres)" tipo="password" autoComplete="new-password" />
+            <Campo nome="senha" rotulo="Senha (mín. 8 caracteres)" tipo="password" autoComplete="new-password" />
             {pedeCodigo && <Campo nome="codigo" rotulo="Código do grupo" />}
             {estadoCadastro.erro && <p className="text-sm text-pv">{estadoCadastro.erro}</p>}
             <button className="botao-ouro w-full" disabled={cadastrando}>

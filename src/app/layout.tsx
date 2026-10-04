@@ -30,7 +30,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                     Administração
                   </Link>
                 )}
-                <span className="text-suave">{usuario.nome}</span>
+                <Link href="/conta" className="text-suave hover:text-texto hover:underline" title="Minha conta e troca de senha">
+                  {usuario.nome}
+                </Link>
                 <button className="botao">Sair</button>
               </form>
             )}
