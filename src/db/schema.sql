@@ -78,3 +78,19 @@ create table if not exists campanha_musica (
   repetir boolean not null default true,
   atualizado_em timestamptz not null default now()
 );
+
+-- Relógios da mesa (livro básico, p.52): círculo de 4 a 12 seções criado pelo Mestre.
+-- "oculto" = só o Mestre vê (o livro recomenda deixar visível, mas às vezes a ameaça é segredo).
+create table if not exists relogios (
+  id uuid primary key default gen_random_uuid(),
+  campanha_id uuid not null references campanhas(id) on delete cascade,
+  nome text not null,
+  tipo text not null default 'progresso',
+  secoes integer not null default 6,
+  preenchidas integer not null default 0,
+  oculto boolean not null default false,
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+
+create index if not exists relogios_campanha_idx on relogios (campanha_id, criado_em);

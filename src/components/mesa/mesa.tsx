@@ -22,6 +22,7 @@ import {
   type CampanhaMesa,
 } from "./estado";
 import { MotorMusica, PainelMusica, registrarAtualizacao } from "./musica";
+import { DesenhoRelogio, PainelRelogios } from "./relogios";
 
 const INTERVALO_MS = 3000;
 
@@ -38,7 +39,7 @@ export function EntrarNaMesa({ campanha }: { campanha: CampanhaMesa }) {
 export function Mesa({ usuarioId }: { usuarioId: string }) {
   const mesa = useMesa();
   const [aberta, setAberta] = useState(false);
-  const [aba, setAba] = useState<"dados" | "musica">("dados");
+  const [aba, setAba] = useState<"dados" | "relogios" | "musica">("dados");
   const campanhaId = mesa.campanha?.id;
 
   // Se outra pessoa entrar neste navegador, a mesa da anterior não passa para ela.
@@ -85,6 +86,7 @@ export function Mesa({ usuarioId }: { usuarioId: string }) {
   }, [campanhaId]);
 
   const tocando = !!mesa.servidor?.musica.tocando;
+  const relogios = mesa.servidor?.relogios ?? [];
   if (!mesa.campanha && mesa.rolagens.length === 0) return null;
   const avisosVisiveis = aberta && aba === "dados" ? [] : mesa.avisos;
 
@@ -110,18 +112,18 @@ export function Mesa({ usuarioId }: { usuarioId: string }) {
           </div>
           {mesa.campanha && (
             <div className="flex border-b border-white/15 text-sm">
-              {(["dados", "musica"] as const).map((x) => (
+              {(["dados", "relogios", "musica"] as const).map((x) => (
                 <button
                   key={x}
                   className={`flex-1 py-2 ${aba === x ? "border-b-2 border-ouro text-ouro" : "text-suave hover:text-texto"}`}
                   onClick={() => setAba(x)}
                 >
-                  {x === "dados" ? "🎲 Dados" : `🎵 Música${tocando ? " ♪" : ""}`}
+                  {x === "dados" ? "🎲 Dados" : x === "relogios" ? `⏱ Relógios${relogios.length ? ` (${relogios.length})` : ""}` : `🎵 Música${tocando ? " ♪" : ""}`}
                 </button>
               ))}
             </div>
           )}
-          {aba === "dados" || !mesa.campanha ? <PainelDados /> : <PainelMusica />}
+          {aba === "dados" || !mesa.campanha ? <PainelDados /> : aba === "relogios" ? <PainelRelogios /> : <PainelMusica />}
         </div>
       ) : (
         <button
@@ -129,6 +131,21 @@ export function Mesa({ usuarioId }: { usuarioId: string }) {
           onClick={() => setAberta(true)}
         >
           🎲 Mesa
+          {relogios.length > 0 && (
+            <span
+              className="flex gap-0.5"
+              title={relogios.map((r) => `${r.nome}: ${r.preenchidas}/${r.secoes}`).join("\n")}
+              onClick={(e) => {
+                e.stopPropagation();
+                setAba("relogios");
+                setAberta(true);
+              }}
+            >
+              {relogios.slice(0, 4).map((r) => (
+                <DesenhoRelogio key={r.id} r={r} tamanho={20} />
+              ))}
+            </span>
+          )}
           {tocando && !mesa.somAtivo ? (
             <span
               className="animate-pulse rounded-full bg-ouro px-2 py-0.5 font-sans text-xs font-bold text-[#2a1d00]"

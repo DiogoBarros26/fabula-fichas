@@ -15,6 +15,11 @@ export function registrarAtualizacao(f: (() => void) | null) {
   atualizarMesa = f;
 }
 
+/** Busca o estado da mesa agora, sem esperar a próxima atualização. */
+export function atualizarAgora() {
+  atualizarMesa?.();
+}
+
 /** Duração da faixa atual, informada pelo player assim que ele a conhece. */
 const duracao = { faixaId: "", segundos: 0 };
 

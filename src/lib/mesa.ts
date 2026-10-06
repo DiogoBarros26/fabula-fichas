@@ -2,11 +2,12 @@ import "server-only";
 import { and, asc, desc, eq, gt, gte, or, sql } from "drizzle-orm";
 import { del } from "@vercel/blob";
 import { db } from "@/db";
-import { faixas, musicaCampanha, rolagens, type TipoFaixa } from "@/db/schema";
+import { faixas, musicaCampanha, relogios, rolagens, type TipoFaixa, type TipoRelogio } from "@/db/schema";
 import type { ResultadoRolagem, Rolagem } from "./dados";
 
 export type Faixa = { id: string; titulo: string; url: string; tipo: TipoFaixa };
 export type EstadoMusica = { faixaId: string | null; tocando: boolean; posicao: number; repetir: boolean; atualizadoEm: number };
+export type Relogio = { id: string; nome: string; tipo: TipoRelogio; secoes: number; preenchidas: number; oculto: boolean };
 export type EstadoMesa = {
   agora: number;
   ehMestre: boolean;
@@ -17,6 +18,7 @@ export type EstadoMesa = {
   invocacoes: { id: number; laco: NonNullable<ResultadoRolagem["laco"]>; total: number }[];
   faixas: Faixa[];
   musica: EstadoMusica;
+  relogios: Relogio[];
 };
 
 /** Tudo que a mesa precisa a cada atualização: rolagens novas (depois de "desde"), playlist e o que está tocando. */
@@ -56,6 +58,20 @@ export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre
     .where(eq(faixas.campanhaId, campanhaId))
     .orderBy(asc(faixas.criadoEm));
 
+  const listaRelogios = await banco
+    .select({
+      id: relogios.id,
+      nome: relogios.nome,
+      tipo: relogios.tipo,
+      secoes: relogios.secoes,
+      preenchidas: relogios.preenchidas,
+      oculto: relogios.oculto,
+    })
+    .from(relogios)
+    // Relógios ocultos só aparecem para o Mestre.
+    .where(and(eq(relogios.campanhaId, campanhaId), ehMestre ? undefined : eq(relogios.oculto, false)))
+    .orderBy(asc(relogios.criadoEm));
+
   const [musica] = await banco.select().from(musicaCampanha).where(eq(musicaCampanha.campanhaId, campanhaId));
 
   return {
@@ -68,6 +84,7 @@ export async function estadoMesa(campanhaId: string, usuarioId: string, ehMestre
     musica: musica
       ? { faixaId: musica.faixaId, tocando: musica.tocando, posicao: musica.posicao, repetir: musica.repetir, atualizadoEm: musica.atualizadoEm.getTime() }
       : { faixaId: null, tocando: false, posicao: 0, repetir: true, atualizadoEm: 0 },
+    relogios: listaRelogios,
   };
 }
 

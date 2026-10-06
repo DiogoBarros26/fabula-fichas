@@ -1,4 +1,4 @@
-import { bigserial, boolean, jsonb, pgTable, primaryKey, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigserial, boolean, integer, jsonb, pgTable, primaryKey, real, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { ResultadoRolagem } from "@/lib/dados";
 import type { Ficha } from "@/lib/regras";
 
@@ -95,5 +95,23 @@ export const musicaCampanha = pgTable("campanha_musica", {
   tocando: boolean("tocando").notNull().default(false),
   posicao: real("posicao").notNull().default(0),
   repetir: boolean("repetir").notNull().default(true),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** progresso: os heróis enchem para cumprir um objetivo. ameaca: enche com falhas e eventos. tempo: prazo, só avança com a história. */
+export type TipoRelogio = "progresso" | "ameaca" | "tempo";
+
+// Relógios da mesa (livro básico, p.52). "oculto" = só o Mestre vê.
+export const relogios = pgTable("relogios", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  campanhaId: uuid("campanha_id")
+    .notNull()
+    .references(() => campanhas.id, { onDelete: "cascade" }),
+  nome: text("nome").notNull(),
+  tipo: text("tipo").$type<TipoRelogio>().notNull().default("progresso"),
+  secoes: integer("secoes").notNull().default(6),
+  preenchidas: integer("preenchidas").notNull().default(0),
+  oculto: boolean("oculto").notNull().default(false),
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 });

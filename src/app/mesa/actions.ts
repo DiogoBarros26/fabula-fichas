@@ -3,7 +3,7 @@
 import { randomInt } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { faixas, fichas, musicaCampanha, rolagens } from "@/db/schema";
+import { faixas, fichas, musicaCampanha, relogios, rolagens, type TipoRelogio } from "@/db/schema";
 import { exigirUsuario } from "@/lib/auth";
 import { resolver, validarPedido, type PedidoRolagem, type ResultadoRolagem, type Rolagem } from "@/lib/dados";
 import { apagarArquivos, ehArquivoDoBlob } from "@/lib/mesa";
@@ -162,4 +162,53 @@ export async function controlarMusica(
     .insert(musicaCampanha)
     .values({ campanhaId, ...valores })
     .onConflictDoUpdate({ target: musicaCampanha.campanhaId, set: valores });
+}
+
+// ---------- Relógios (livro básico, p.52-55) ----------
+
+const TIPOS_RELOGIO: TipoRelogio[] = ["progresso", "ameaca", "tempo"];
+
+function dadosRelogio(d: { nome: string; tipo: TipoRelogio; secoes: number; oculto: boolean }) {
+  const nome = String(d.nome ?? "").trim().slice(0, 60);
+  if (!nome) throw new Error("Dê um nome ao relógio.");
+  const secoes = Math.trunc(Number(d.secoes));
+  if (!(secoes >= 2 && secoes <= 20)) throw new Error("O relógio deve ter de 2 a 20 seções.");
+  return { nome, tipo: TIPOS_RELOGIO.includes(d.tipo) ? d.tipo : "progresso", secoes, oculto: !!d.oculto };
+}
+
+export async function criarRelogio(campanhaId: string, d: { nome: string; tipo: TipoRelogio; secoes: number; oculto: boolean }) {
+  await exigirMestre(campanhaId);
+  const banco = await db();
+  await banco.insert(relogios).values({ campanhaId, ...dadosRelogio(d) });
+}
+
+/** Muda nome, tipo, tamanho ou visibilidade; as seções preenchidas não passam do novo tamanho. */
+export async function editarRelogio(campanhaId: string, relogioId: string, d: { nome: string; tipo: TipoRelogio; secoes: number; oculto: boolean }) {
+  await exigirMestre(campanhaId);
+  const valores = dadosRelogio(d);
+  const banco = await db();
+  await banco
+    .update(relogios)
+    .set({ ...valores, preenchidas: sql`least(${relogios.preenchidas}, ${valores.secoes})`, atualizadoEm: new Date() })
+    .where(and(eq(relogios.id, relogioId), eq(relogios.campanhaId, campanhaId)));
+}
+
+/** Preenche (delta > 0) ou apaga (delta < 0) seções, sempre entre 0 e o total. */
+export async function moverRelogio(campanhaId: string, relogioId: string, delta: number) {
+  await exigirMestre(campanhaId);
+  const passo = Math.max(-20, Math.min(20, Math.trunc(Number(delta) || 0)));
+  const banco = await db();
+  await banco
+    .update(relogios)
+    .set({
+      preenchidas: sql`greatest(0, least(${relogios.secoes}, ${relogios.preenchidas} + ${passo}))`,
+      atualizadoEm: new Date(),
+    })
+    .where(and(eq(relogios.id, relogioId), eq(relogios.campanhaId, campanhaId)));
+}
+
+export async function apagarRelogio(campanhaId: string, relogioId: string) {
+  await exigirMestre(campanhaId);
+  const banco = await db();
+  await banco.delete(relogios).where(and(eq(relogios.id, relogioId), eq(relogios.campanhaId, campanhaId)));
 }
