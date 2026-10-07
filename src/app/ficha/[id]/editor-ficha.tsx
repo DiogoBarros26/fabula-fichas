@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   ATRIBUTOS,
   CONDICOES,
+  CONSUMIVEIS,
   DADOS,
   PARES_EMOCOES,
   PERFIS_ATRIBUTOS,
@@ -367,9 +368,26 @@ export function EditorFicha({
               cor="bg-pi"
               atual={c.pi}
               max={c.piMax}
-              extra="Pontos de Inventário: gastos ao usar itens (poção = 3 PI, elixir = 3, tenda = 4…)"
               onChange={(v) => set("piAtual", v)}
             />
+            <details className="text-sm">
+              <summary className="cursor-pointer text-suave">ⓘ Consumíveis (custo em PI)</summary>
+              <table className="mt-2 w-full text-left text-xs">
+                <tbody>
+                  {CONSUMIVEIS.map((item) => (
+                    <tr key={item.nome} className="border-t border-white/10 align-top">
+                      <td className="py-1 pr-2 font-semibold whitespace-nowrap">{item.nome}</td>
+                      <td className="py-1 pr-2 whitespace-nowrap">{item.pi} PI</td>
+                      <td className="py-1 text-suave">{item.efeito}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-2 text-xs text-suave">
+                Use com a ação de Inventário; o item é usado na hora e não dá para passar PI a outro personagem. Recarregue em cidades por 10 zenit
+                cada PI (livro básico, p. 104–105).
+              </p>
+            </details>
             <div className="grid grid-cols-3 gap-3 pt-2">
               <Campo rotulo="Pontos de Fábula" dica="Gaste para rerrolar dados ou invocar Traços e Laços">
                 <Numero valor={f.pontosFabula} onChange={(v) => set("pontosFabula", v)} />

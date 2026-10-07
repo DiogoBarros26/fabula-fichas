@@ -51,6 +51,15 @@ export const CONDICOES = [
 ] as const;
 export type CondicaoId = (typeof CONDICOES)[number]["id"];
 
+/** Consumíveis padrão (livro básico, p. 104–105). O item é usado na hora; PI não pode ser repassado. */
+export const CONSUMIVEIS = [
+  { nome: "Tônico", pi: 2, efeito: "Uma criatura se recupera de um efeito de status." },
+  { nome: "Fragmento Elemental", pi: 2, efeito: "Uma criatura sofre 10 de dano de um tipo à escolha (ar, raio, terra, fogo ou gelo)." },
+  { nome: "Remédio", pi: 3, efeito: "Uma criatura recupera 50 PV." },
+  { nome: "Elixir", pi: 3, efeito: "Uma criatura recupera 50 PM." },
+  { nome: "Tenda Mágica", pi: 4, efeito: "Permite que todo o grupo descanse em área selvagem." },
+] as const;
+
 export const PARES_EMOCOES = [
   ["Admiração", "Inferioridade"],
   ["Lealdade", "Desconfiança"],
